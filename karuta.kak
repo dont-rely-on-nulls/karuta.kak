@@ -9,56 +9,42 @@
 # Uses Kakoune's conventional faces so the active colorscheme controls colors.
 
 # Detect Karuta and Sakura files.
-hook global BufCreate .*\.krt$ %{
+hook global BufCreate .*\.(krt|skr) %{
     set-option buffer filetype karuta
-}
-hook global BufCreate .*\.skr$ %{
-    set-option buffer filetype karuta
+    set-option buffer extra_word_chars '_' '-' ':'
 }
 
-# Strings and comments are regions, so token rules do not affect their contents.
-add-highlighter shared/karuta regions
-add-highlighter shared/karuta/string region '"' '"' fill String
-add-highlighter shared/karuta/line-comment region '(?<!#)%' '$' fill Comment
-add-highlighter shared/karuta/code default-region group
+hook global BufSetOption filetype=karuta %{
+    require-module karuta
+    add-highlighter buffer/karuta ref karuta
+}
 
-# Language directives.
-add-highlighter shared/karuta/code/keywords regex '\b(module|signature|project|comment|sakura|persisted|ephemeral|constraint|import|karuta|begin|end)\b' 0:Keyword
+provide-module karuta %{
+    add-highlighter shared/karuta regions
+    add-highlighter shared/karuta/string region '"' '"' fill string
+    add-highlighter shared/karuta/quoted-atom region "'" "'" fill string
+    add-highlighter shared/karuta/line-comment region '(?<!#)%' '$' fill comment
+    add-highlighter shared/karuta/code default-region group
 
-# Logic variables: X, Out, NewAcc, _Tail, and _.
-add-highlighter shared/karuta/code/variables regex '\b([A-Z_][a-zA-Z0-9_]*)\b' 1:Variable
+    # Language directives.
+    add-highlighter shared/karuta/code/keyword regex '\b(module|signature|project|comment|sakura|persisted|ephemeral|constraint|import|karuta|begin|end)\b' 1:keyword
 
-# Plain lower-case atoms used as constants.
-add-highlighter shared/karuta/code/atoms regex '\b([a-z][a-zA-Z0-9_-]*)\b' 1:Builtin
+    add-highlighter shared/karuta/code/variable regex '\b([A-Z_]\w*)\b' 1:variable
 
-# Predicate/functor names are lower-case atoms immediately followed by
-# an argument/list opener.
-add-highlighter shared/karuta/code/predicates regex '\b([a-z][a-zA-Z0-9_-]*)(?=[\[(])' 1:Function
+    add-highlighter shared/karuta/code/atom regex '\b([a-z][a-zA-Z0-9_-]*)\b(?![\[(])' 1:value
 
-# Module qualifiers, e.g. karuta: or a: in a:b:predicate.
-# Requiring a following atom avoids treating the :- rule arrow as a qualifier.
-add-highlighter shared/karuta/code/qualifiers regex '\b([a-z][a-zA-Z0-9_-]*)(:)(?=[a-zA-Z_])' 1:Type 2:Type
+    add-highlighter shared/karuta/code/predicate regex '\b([a-z][a-zA-Z0-9_-]*)(?=[\[(])' 1:function
 
-# Numeric literals, including negative integers.
-add-highlighter shared/karuta/code/numbers regex '\b(-?[0-9]+)\b' 1:Value
+    add-highlighter shared/karuta/code/qualifier regex '\b([a-z][a-zA-Z0-9_-]*)(:)(?=[a-z])' 1:type 2:punctuation
 
-# Operators and delimiters.
-add-highlighter shared/karuta/code/arrow regex '(:-)' 1:Operator
-add-highlighter shared/karuta/code/query regex '(\?)' 1:Operator
-add-highlighter shared/karuta/code/range regex '(\.\.)' 1:Operator
-add-highlighter shared/karuta/code/braces regex '([{}])' 1:Bracket
-add-highlighter shared/karuta/code/brackets regex '([\[\]()])' 1:Bracket
-add-highlighter shared/karuta/code/separators regex '([,|])' 1:Operator
+    add-highlighter shared/karuta/code/number regex '\b(-?[0-9]+)\b' 1:value
 
-# Karuta's #%-comment comments out one expression, not the rest of the line.
-# Kakoune's regex/region highlighters do not parse nested Karuta expressions,
-# so highlight the introducer rather than incorrectly swallowing later code.
-add-highlighter shared/karuta/code/expression-comment regex '(#%)' 1:Comment
+    add-highlighter shared/karuta/code/arrow regex ':-' 0:operator
+    add-highlighter shared/karuta/code/query regex '\?' 0:operator
+    add-highlighter shared/karuta/code/bracket regex '[{}\[\]()]' 0:punctuation
+    add-highlighter shared/karuta/code/separator regex '[,\.]' 0:puncuation
+    add-highlighter shared/karuta/code/pipe regex '\|' 0:operator
 
-# Attach syntax and sensible indentation defaults to Karuta buffers.
-hook global WinSetOption filetype=karuta %{
-    add-highlighter window/ ref karuta
-    set-option buffer indentwidth 2
-    set-option buffer tabstop 2
-    set-option buffer makecmd 'karuta compile %val{buffile}'
+    # Karuta's #%-comment comments out one expression, not the rest of the line.
+    add-highlighter shared/karuta/code/expression-comment regex '#%' 0:comment
 }
